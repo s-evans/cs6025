@@ -1,0 +1,95 @@
+import java.io.*;
+import java.lang.*;
+
+public class SHA1{
+   static long[] K = { 
+     0x5a827999L, 0x6ed9eba1L,
+     0x8f1bbcdcL, 0xca62c1d6L };
+   long[] H = {
+     0x67452301L, 0xefcdab89L, 0x98badcfeL, 
+     0x10325476L, 0xc3d2e1f0L  };
+   static long mask = 0xffffffffL;
+
+   
+   void compress(byte[] buf){
+        long[] A = new long[5];
+        long[] words = new long[80];
+        for (int i = 0; i < 16; i++){
+           words[i] = 0;
+           for (int j = 0; j < 4; j++){
+              words[i] <<= 8; 
+              words[i] |= buf[i * 4 + j];
+           }
+        }
+        for (int t = 16; t < 80; t++){
+           words[t] = words[t-3] ^ words[t-8] 
+                    ^ words[t-14] ^ words[t-16];
+           words[t] = ((words[t] << 1) | (words[t] >> 31)) & mask;
+        }
+        for (int i = 0; i < 5; i++) A[i] = H[i];
+        for (int i = 0; i < 80; i++){ 
+           long temp = ((A[0] << 5) | (A[0] >> 27)) & mask;
+           switch (i / 20){
+              case 0: temp += ((A[1] & A[2]) | (~A[1] & A[3])) + K[0]; break;
+              case 1: temp += (A[1] ^ A[2] ^ A[3]) + K[1]; break;
+              case 2: temp += (A[1] & A[2] | A[1] & A[3] | A[2] & A[3]) + K[2]; break;
+              case 3: temp += (A[1] ^ A[2] ^ A[3]) + K[3]; break;
+              default: ;
+           }
+           temp += A[4] + words[i];
+           temp &= mask;
+           A[4] = A[3];
+           A[3] = A[2];
+           A[2] = ((A[1] << 30) | (A[1] >> 2)) & mask;
+           A[1] = A[0];
+           A[0] = temp;
+        }
+        for (int i = 0; i < 5; i++){
+           H[i] += A[i];
+           H[i] &= mask;
+        }
+   }
+
+   public void hash(){
+      long count = 0;
+      byte[] buffer = new byte[64];
+      int blocklen = 0;
+      String str;
+     try{
+      while ((blocklen = System.in.read(buffer)) > 0){
+        count += blocklen; 
+        if (blocklen < 64){ 
+           buffer[blocklen++] = (byte)0x80; 
+           for (int i = blocklen; i < 64; i++) buffer[i] = 0;
+           if (blocklen < 56) 
+              for (int i = 63; i >= 56; i--){
+                 buffer[i] = (byte)(count & 0xff);
+                 count >>= 8;
+              }
+        }
+        compress(buffer);
+       }
+     }catch(IOException e){ System.err.println(e); System.exit(1); }   
+     if (blocklen <= 0 || blocklen >= 56){
+        for (int i = 63; i >= 56; i--){
+           buffer[i] = (byte)(count & 0xff);
+           count >>= 8;
+        }
+        for (int i = 0; i < 56; i++) buffer[i] = 0; 
+        compress(buffer);
+     }      
+     for (int i = 0; i < 5; i++){
+        str = Long.toHexString(H[i]);
+        int strlen = str.length();
+        for (int j = strlen; j < 8; j++) str = "0" + str;
+        System.out.print(str.toUpperCase());
+     }
+     System.out.println();
+   }
+            
+
+   public static void main(String[] args){
+     SHA1 sha = new SHA1();
+     sha.hash();
+   }
+}
